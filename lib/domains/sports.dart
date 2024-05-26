@@ -28,7 +28,7 @@ class _SportsState extends State<Sports> {
 
     try {
       final response = await http
-          .get(Uri.parse('http://localhost:3000/get_word/sports'))
+          .get(Uri.parse('https://hangman-game-oo78.onrender.com/get_word/sports'))
           .timeout(Duration(seconds: 10));
       if (response.statusCode == 200) {
         final wordData = jsonDecode(response.body);

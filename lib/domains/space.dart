@@ -28,7 +28,7 @@ class _SpaceState extends State<Space> {
 
     try {
       final response = await http
-          .get(Uri.parse('http://localhost:3000/get_word/space'))
+          .get(Uri.parse('https://hangman-game-oo78.onrender.com/get_word/space'))
           .timeout(Duration(seconds: 10));
       if (response.statusCode == 200) {
         final wordData = jsonDecode(response.body);

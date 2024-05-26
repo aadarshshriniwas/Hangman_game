@@ -29,7 +29,7 @@ class _GeneralState extends State<General> {
 
     try {
       final response = await http
-          .get(Uri.parse('http://localhost:3000/get_word/general'))
+          .get(Uri.parse('https://hangman-game-oo78.onrender.com/get_word/general'))
           .timeout(Duration(seconds: 10));
       if (response.statusCode == 200) {
         final wordData = jsonDecode(response.body);
