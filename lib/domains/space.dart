@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'dart:math';
-
+import 'package:http/http.dart' as http;
+import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:hangman_app/const/const.dart';
 import 'package:hangman_app/game/figure_widget.dart';
@@ -14,87 +15,75 @@ class Space extends StatefulWidget {
 }
 
 class _SpaceState extends State<Space> {
-  var characters = "abcdefghijklmnopqrstuvwxyz".toUpperCase();
-  var wordData = [
-    {
-      "word": "Astronomy",
-      "hint": "Study of celestial objects and the universe"
-    },
-    {"word": "Galaxy", "hint": "Vast system of stars, gas, and dust"},
-    {"word": "Asteroid", "hint": "Small rocky object in space"},
-    {"word": "Comet", "hint": "Icy celestial object with a tail"},
-    {"word": "Meteor", "hint": "Small space rock entering Earth's atmosphere"},
-    {"word": "Telescope", "hint": "Instrument for observing distant objects"},
-    {"word": "BlackHole", "hint": "Region with strong gravitational pull"},
-    {"word": "Constellation", "hint": "Pattern of stars in the sky"},
-    {"word": "SpaceShuttle", "hint": "Reusable spacecraft used by NASA"},
-    {"word": "Exoplanet", "hint": "Planet outside our solar system"},
-    {"word": "Nebula", "hint": "Giant cloud of gas and dust in space"},
-    {
-      "word": "SpaceStation",
-      "hint": "Orbital facility for scientific research"
-    },
-    {"word": "Astrobiology", "hint": "Study of life in the universe"},
-    {"word": "Hubble", "hint": "Space telescope for deep-space observation"},
-    {"word": "Spacewalk", "hint": "Astronaut activity outside a spacecraft"},
-    {
-      "word": "Gravity",
-      "hint": "Force that attracts objects toward each other"
-    },
-    {"word": "Orbit", "hint": "Path of an object around another in space"},
-    {
-      "word": "Satellite",
-      "hint": "Man-made object in orbit for various purposes"
-    },
-    {"word": "Astronaut", "hint": "Trained space traveler"},
-    {"word": "Rocket", "hint": "Vehicle for space travel"},
-    {"word": "SolarSystem", "hint": "Sun and its celestial objects"},
-    {
-      "word": "Extraterrestrial",
-      "hint": "Originating or existing outside Earth"
-    },
-    {
-      "word": "Spacecraft",
-      "hint": "Manned or unmanned vehicle for space travel"
-    },
-    {"word": "Alien", "hint": "Being from another planet"},
-    {"word": "Interstellar", "hint": "Occurring or situated between stars"},
-    {"word": "Lunar", "hint": "Related to the Moon"},
-  ];
-  final _random = Random();
-  late var wordDataIndex;
+  final String characters = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
+  late String word = "";
+  late String hint = ""; // Provide a default value to prevent late initialization error
   List<String> selectedChar = [];
-  var tries = 0;
-  late String word; // Removed null safety from 'word' variable
-  late String hint; // Removed null safety from 'hint' variable
-  void loadNewWord() {
+  int tries = 0;
+  bool _isLoading = true;
+  Future<void> loadNewWord() async {
     setState(() {
-      wordDataIndex = _random.nextInt(wordData.length);
-      word = wordData[wordDataIndex]["word"]!.toUpperCase();
-      hint = wordData[wordDataIndex]["hint"]!;
-      selectedChar.clear();
-      tries = 0;
+      _isLoading = true;
     });
+
+    try {
+      final response = await http
+          .get(Uri.parse('http://localhost:3000/get_word/space'))
+          .timeout(Duration(seconds: 10));
+      if (response.statusCode == 200) {
+        final wordData = jsonDecode(response.body);
+        final newWord = wordData["word"].toUpperCase();
+        print('Fetched word: $newWord'); // Print the fetched word
+        setState(() {
+          word = newWord;
+          hint = wordData["hint"] ?? ""; // Handle the case where hint is null
+          selectedChar.clear();
+          tries = 0;
+          _isLoading = false;
+        });
+      } else {
+        throw Exception('Failed to load word');
+      }
+    } catch (e) {
+      // If there is an error, handle it appropriately
+      setState(() {
+        _isLoading = false;
+      });
+      showDialog(
+        context: context,
+        builder: (context) => AlertDialog(
+          title: Text('Error'),
+          content: Text('Failed to load word. Please try again.'),
+          actions: [
+            TextButton(
+              onPressed: () {
+                Navigator.of(context).pop();
+                loadNewWord(); // Retry loading the word
+              },
+              child: Text('Retry'),
+            ),
+          ],
+        ),
+      );
+      print(e);
+    }
   }
+
 
   void checkWinCondition() {
     if (selectedChar.toSet().containsAll(word.split('').toSet())) {
       // User has successfully guessed the whole word
       loadNewWord();
     } else if (tries >= 7) {
-      // User has reached 6 tries
+      // User has reached the maximum number of tries
       loadNewWord();
     }
   }
 
-  final GlobalKey buttonKey = GlobalKey();
   @override
   void initState() {
     super.initState();
-    wordDataIndex = _random.nextInt(wordData.length);
-    word = wordData[wordDataIndex]["word"]?.toUpperCase() ?? "";
-
-    hint = wordData[wordDataIndex]["hint"]!;
+    loadNewWord();
   }
 
   @override
@@ -106,7 +95,9 @@ class _SpaceState extends State<Space> {
         elevation: 0.0,
         backgroundColor: Colors.transparent,
       ),
-      body: Column(
+      body: _isLoading
+          ? Center(child: CircularProgressIndicator())
+          : Column(
         children: [
           Expanded(
             flex: 3,
@@ -127,9 +118,7 @@ class _SpaceState extends State<Space> {
                   ),
                 ),
                 ElevatedButton(
-                  key: buttonKey,
-                  onPressed:
-                      loadNewWord, // Call the function to load a new word
+                  onPressed: loadNewWord,
                   child: Text(
                     "New word",
                     style: TextStyle(
@@ -160,10 +149,10 @@ class _SpaceState extends State<Space> {
                                 .split("")
                                 .map(
                                   (e) => hiddenLetter(
-                                    e,
-                                    selectedChar.contains(e.toUpperCase()),
-                                  ),
-                                )
+                                e,
+                                selectedChar.contains(e.toUpperCase()),
+                              ),
+                            )
                                 .toList(),
                           ),
                         ],
@@ -187,31 +176,29 @@ class _SpaceState extends State<Space> {
                     .split("")
                     .map(
                       (e) => ElevatedButton(
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: AppColors.bgColor,
-                        ),
-                        onPressed: selectedChar.contains(e.toUpperCase())
-                            ? null
-                            : () {
-                                setState(() {
-                                  selectedChar.add(e.toUpperCase());
-                                  if (!word
-                                      .split("")
-                                      .contains(e.toUpperCase())) {
-                                    tries++;
-                                  }
-                                  checkWinCondition();
-                                });
-                              },
-                        child: Text(
-                          e,
-                          style: TextStyle(
-                            fontSize: 24,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: AppColors.bgColor,
+                    ),
+                    onPressed: selectedChar.contains(e.toUpperCase())
+                        ? null
+                        : () {
+                      setState(() {
+                        selectedChar.add(e.toUpperCase());
+                        if (!word.split("").contains(e.toUpperCase())) {
+                          tries++;
+                        }
+                        checkWinCondition();
+                      });
+                    },
+                    child: Text(
+                      e,
+                      style: TextStyle(
+                        fontSize: 24,
+                        fontWeight: FontWeight.bold,
                       ),
-                    )
+                    ),
+                  ),
+                )
                     .toList(),
               ),
             ),

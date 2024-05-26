@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'dart:math';
+import 'package:http/http.dart' as http;
+import 'dart:convert';
 
 import 'package:flutter/material.dart';
 import 'package:hangman_app/const/const.dart';
@@ -14,158 +16,75 @@ class Literature extends StatefulWidget {
 }
 
 class _LiteratureState extends State<Literature> {
-  var characters = "abcdefghijklmnopqrstuvwxyz".toUpperCase();
-  var wordData = [
-    {"word": "Mythology", "hint": "Traditional stories of gods and heroes"},
-    {"word": "Fiction", "hint": "Imaginative and invented narrative"},
-    {"word": "Nonfiction", "hint": "True and factual writing"},
-    {"word": "Symbol", "hint": "Object representing something else"},
-    {"word": "Epic", "hint": "Long narrative poem about heroic deeds"},
-    {"word": "Haiku", "hint": "Japanese poem with 3 lines and 17 syllables"},
-    {
-      "word": "Character Development",
-      "hint": "Change in character traits over a story"
-    },
-    {
-      "word": "Literary Device",
-      "hint": "Technique used by writers to create effects"
-    },
-    {"word": "Diction", "hint": "Author's choice of words in writing"},
-    {
-      "word": "Foreshadowing",
-      "hint": "Hint of what will happen later in a story"
-    },
-    {"word": "ToKillaMockingbird", "hint": "Harper Lee's classic novel"},
-    {"word": "PrideandPrejudice", "hint": "Jane Austen's famous work"},
-    {"word": "1984", "hint": "George Orwell's dystopian novel"},
-    {"word": "TheGreatGatsby", "hint": "F. Scott Fitzgerald's masterpiece"},
-    {"word": "Rabindranath", "hint": "Nobel laureate known for 'Gitanjali'"},
-    {
-      "word": "AmitavGhosh",
-      "hint": "Author of 'The Glass Palace' and 'Sea of Poppies'"
-    },
-    {
-      "word": "ArundhatiRoy",
-      "hint": "Won the Booker Prize for 'The God of Small Things'"
-    },
-    {
-      "word": "KamalaDas",
-      "hint": "Famous for her poetry and autobiography 'My Story'"
-    },
-    {
-      "word": "SalmanRushdie",
-      "hint": "Author of 'Midnight's Children' and 'The Satanic Verses'"
-    },
-    {
-      "word": "DurjoyDatta",
-      "hint": "Popular contemporary Indian author of romantic fiction"
-    },
-    {
-      "word": "AnitaDesai",
-      "hint":
-          "Known for novels like 'The Village by the Sea' and 'Clear Light of Day'"
-    },
-    {
-      "word": "ArunShourie",
-      "hint": "Author of 'The World of Fatwas' and 'Eminent Historians'"
-    },
-    {
-      "word": "VikramChandra",
-      "hint": "Wrote 'Red Earth and Pouring Rain' and 'Sacred Games'"
-    },
-    {
-      "word": "SudhaMurthy",
-      "hint":
-          "Famous for her philanthropic work and books like 'Wise and Otherwise'"
-    },
-    {
-      "word": "DevduttPattanaik",
-      "hint": "Author of books on Indian mythology and folklore"
-    },
-    {
-      "word": "JhumpaLahiri",
-      "hint": "Pulitzer Prize-winning author of 'Interpreter of Maladies'"
-    },
-    {
-      "word": "Shashitharoor",
-      "hint": "Author of 'The Great Indian Novel' and 'Inglorious Empire'"
-    },
-    {
-      "word": "AnujaChauhan",
-      "hint":
-          "Known for contemporary Indian rom-com novels like 'The Zoya Factor'"
-    },
-    {
-      "word": "ManjuKapur",
-      "hint": "Author of 'Difficult Daughters' and 'The Immigrant'"
-    },
-    {
-      "word": "DilipKumar",
-      "hint": "Famous actor's autobiography 'The Substance and the Shadow'"
-    },
-    {
-      "word": "AnandNeelakantan",
-      "hint": "Known for retelling Indian mythology from different perspectives"
-    },
-    {
-      "word": "SavitriPhule",
-      "hint": "Famous Indian social reformer and author of 'Slavery'"
-    },
-    {
-      "word": "VikramSeth",
-      "hint": "Wrote 'A Suitable Boy' and 'The Golden Gate'"
-    },
-    {
-      "word": "ChitraBanerjee Divakaruni",
-      "hint": "Known for 'The Palace of Illusions'"
-    },
-    {
-      "word": "RuskinBond",
-      "hint": "Famous for his books on the Himalayas and childhood memories"
-    },
-    {
-      "word": "RkLaxman",
-      "hint": "Cartoonist and author of 'The Common Man and the Uncommon World'"
-    },
-    {
-      "word": "TwinkleKhanna",
-      "hint": "Author of humorous books like 'Mrs Funnybones'"
-    },
-  ];
-  final _random = Random();
-  late var wordDataIndex;
+  final String characters = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
+  late String word = "";
+  late String hint = ""; // Provide a default value to prevent late initialization error
   List<String> selectedChar = [];
-  var tries = 0;
-  late String word; // Removed null safety from 'word' variable
-  late String hint; // Removed null safety from 'hint' variable
-  void loadNewWord() {
+  int tries = 0;
+  bool _isLoading = true;
+  Future<void> loadNewWord() async {
     setState(() {
-      wordDataIndex = _random.nextInt(wordData.length);
-      word = wordData[wordDataIndex]["word"]!.toUpperCase();
-      hint = wordData[wordDataIndex]["hint"]!;
-      selectedChar.clear();
-      tries = 0;
+      _isLoading = true;
     });
+
+    try {
+      final response = await http
+          .get(Uri.parse('http://localhost:3000/get_word/literature'))
+          .timeout(Duration(seconds: 10));
+      if (response.statusCode == 200) {
+        final wordData = jsonDecode(response.body);
+        final newWord = wordData["word"].toUpperCase();
+        print('Fetched word: $newWord'); // Print the fetched word
+        setState(() {
+          word = newWord;
+          hint = wordData["hint"] ?? ""; // Handle the case where hint is null
+          selectedChar.clear();
+          tries = 0;
+          _isLoading = false;
+        });
+      } else {
+        throw Exception('Failed to load word');
+      }
+    } catch (e) {
+      // If there is an error, handle it appropriately
+      setState(() {
+        _isLoading = false;
+      });
+      showDialog(
+        context: context,
+        builder: (context) => AlertDialog(
+          title: Text('Error'),
+          content: Text('Failed to load word. Please try again.'),
+          actions: [
+            TextButton(
+              onPressed: () {
+                Navigator.of(context).pop();
+                loadNewWord(); // Retry loading the word
+              },
+              child: Text('Retry'),
+            ),
+          ],
+        ),
+      );
+      print(e);
+    }
   }
+
 
   void checkWinCondition() {
     if (selectedChar.toSet().containsAll(word.split('').toSet())) {
       // User has successfully guessed the whole word
       loadNewWord();
     } else if (tries >= 7) {
-      // User has reached 6 tries
+      // User has reached the maximum number of tries
       loadNewWord();
     }
   }
 
-  final GlobalKey buttonKey = GlobalKey();
   @override
   void initState() {
     super.initState();
-    wordDataIndex = _random.nextInt(wordData.length);
-    word = wordData[wordDataIndex]["word"]?.toUpperCase() ?? "";
-
-    hint = wordData[wordDataIndex]["hint"]!;
+    loadNewWord();
   }
 
   @override
@@ -177,7 +96,9 @@ class _LiteratureState extends State<Literature> {
         elevation: 0.0,
         backgroundColor: Colors.transparent,
       ),
-      body: Column(
+      body: _isLoading
+          ? Center(child: CircularProgressIndicator())
+          : Column(
         children: [
           Expanded(
             flex: 3,
@@ -198,9 +119,7 @@ class _LiteratureState extends State<Literature> {
                   ),
                 ),
                 ElevatedButton(
-                  key: buttonKey,
-                  onPressed:
-                      loadNewWord, // Call the function to load a new word
+                  onPressed: loadNewWord,
                   child: Text(
                     "New word",
                     style: TextStyle(
@@ -231,10 +150,10 @@ class _LiteratureState extends State<Literature> {
                                 .split("")
                                 .map(
                                   (e) => hiddenLetter(
-                                    e,
-                                    selectedChar.contains(e.toUpperCase()),
-                                  ),
-                                )
+                                e,
+                                selectedChar.contains(e.toUpperCase()),
+                              ),
+                            )
                                 .toList(),
                           ),
                         ],
@@ -258,31 +177,29 @@ class _LiteratureState extends State<Literature> {
                     .split("")
                     .map(
                       (e) => ElevatedButton(
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: AppColors.bgColor,
-                        ),
-                        onPressed: selectedChar.contains(e.toUpperCase())
-                            ? null
-                            : () {
-                                setState(() {
-                                  selectedChar.add(e.toUpperCase());
-                                  if (!word
-                                      .split("")
-                                      .contains(e.toUpperCase())) {
-                                    tries++;
-                                  }
-                                  checkWinCondition();
-                                });
-                              },
-                        child: Text(
-                          e,
-                          style: TextStyle(
-                            fontSize: 24,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: AppColors.bgColor,
+                    ),
+                    onPressed: selectedChar.contains(e.toUpperCase())
+                        ? null
+                        : () {
+                      setState(() {
+                        selectedChar.add(e.toUpperCase());
+                        if (!word.split("").contains(e.toUpperCase())) {
+                          tries++;
+                        }
+                        checkWinCondition();
+                      });
+                    },
+                    child: Text(
+                      e,
+                      style: TextStyle(
+                        fontSize: 24,
+                        fontWeight: FontWeight.bold,
                       ),
-                    )
+                    ),
+                  ),
+                )
                     .toList(),
               ),
             ),

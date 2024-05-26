@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'dart:math';
-
+import 'package:http/http.dart' as http;
+import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:hangman_app/const/const.dart';
 import 'package:hangman_app/game/figure_widget.dart';
@@ -14,108 +15,75 @@ class Movies extends StatefulWidget {
 }
 
 class _MoviesState extends State<Movies> {
-  var characters = "abcdefghijklmnopqrstuvwxyz".toUpperCase();
-  var wordData = [
-    {"word": "Bollywood", "hint": "Hindi-language film industry in India"},
-    {"word": "Hollywood", "hint": "Famous film industry in the United States"},
-    {"word": "Bollywood", "hint": "Hindi-language film industry in India"},
-    {"word": "Hollywood", "hint": "Famous film industry in the United States"},
-    {"word": "Lagaan", "hint": "Aamir Khan-starrer, nominated for an Oscar"},
-    {
-      "word": "TheDarkKnight",
-      "hint": "Sequel to 'Batman Begins' with Heath Ledger's Joker"
-    },
-    {
-      "word": "DDLJ",
-      "hint": "Iconic Hindi movie 'Dilwale Dulhania Le Jayenge'"
-    },
-    {"word": "TheGodfather", "hint": "Classic mafia film with Marlon Brando"},
-    {"word": "Sholay", "hint": "Legendary Hindi film featuring Gabbar Singh"},
-    {"word": "Forrest Gump", "hint": "Tom Hanks in a heartwarming tale"},
-    {"word": "Gangs of Wasseypur", "hint": "Anurag Kashyap's crime epic"},
-    {
-      "word": "Inception",
-      "hint": "Mindbending sci-fi thriller by Christopher Nolan"
-    },
-    {"word": "Baahubali", "hint": "Indian epic fantasy film series"},
-    {"word": "Avengers", "hint": "Marvel superhero team-up movies"},
-    {"word": "KabirSingh", "hint": "Bollywood drama starring Shahid Kapoor"},
-    {"word": "StarWars", "hint": "Epic space opera franchise"},
-    {"word": "DilChahtaHai", "hint": "Coming-of-age Hindi film"},
-    {"word": "JurassicPark", "hint": "Dinosaur adventure by Steven Spielberg"},
-    {
-      "word": "ZindagiNaMilegiDobara",
-      "hint": "Bollywood film about friendship and adventure"
-    },
-    {
-      "word": "Titanic",
-      "hint": "Romantic drama with Leonardo DiCaprio and Kate Winslet"
-    },
-    {"word": "KuchKuchHotaHai", "hint": "Popular Hindi film by Karan Johar"},
-    {"word": "TheMatrix", "hint": "Sci-fi action with Keanu Reeves as Neo"},
-    {"word": "Baazigar", "hint": "Bollywood thriller starring Shah Rukh Khan"},
-    {"word": "Interstellar", "hint": "Space exploration by Christopher Nolan"},
-    {"word": "Dabangg", "hint": "Salman Khan in a cop action film"},
-    {"word": "PulpFiction", "hint": "Quentin Tarantino's cult classic"},
-    {"word": "ChennaiExpress", "hint": "Bollywood comedy with Shah Rukh Khan"},
-    {
-      "word": "TheShawshankRedemption",
-      "hint": "Prison drama based on Stephen King's novella"
-    },
-    {"word": "KabhiKhushiKabhieGham", "hint": "Family drama and Bollywood hit"},
-    {"word": "TheAvengers", "hint": "Marvel's superhero ensemble"},
-    {
-      "word": "ThePursuitofHappyness",
-      "hint": "Inspirational drama with Will Smith"
-    },
-    {"word": "RangDeBasanti", "hint": "Indian film about youth activism"},
-    {"word": "BlackPanther", "hint": "Marvel's African superhero"},
-    {"word": "Andhadhun", "hint": "Sriram Raghavan's thriller"},
-    {"word": "Baahubali", "hint": "Indian epic fantasy film series"},
-    {"word": "BreakingBad", "hint": "Critically acclaimed American TV series"},
-    {"word": "GameofThrones", "hint": "Epic fantasy TV series based on novels"},
-    {"word": "SacredGames", "hint": "Indian crime thriller web series"},
-    {"word": "StrangerThings", "hint": "Sci-fi horror series on Netflix"},
-    {"word": "Mirzapur", "hint": "Action-packed web series in India"},
-    {"word": "Friends", "hint": "Beloved American sitcom"},
-    {"word": "MoneyHeist", "hint": "Spanish heist crime drama on Netflix"},
-    {"word": "TheCrown", "hint": "Historical drama about the British monarchy"},
-    {"word": "BigBangTheory", "hint": "Popular sitcom about physicists"},
-  ];
-  final _random = Random();
-  late var wordDataIndex;
+  final String characters = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
+  late String word = "";
+  late String hint = ""; // Provide a default value to prevent late initialization error
   List<String> selectedChar = [];
-  var tries = 0;
-  late String word; // Removed null safety from 'word' variable
-  late String hint; // Removed null safety from 'hint' variable
-  void loadNewWord() {
+  int tries = 0;
+  bool _isLoading = true;
+  Future<void> loadNewWord() async {
     setState(() {
-      wordDataIndex = _random.nextInt(wordData.length);
-      word = wordData[wordDataIndex]["word"]!.toUpperCase();
-      hint = wordData[wordDataIndex]["hint"]!;
-      selectedChar.clear();
-      tries = 0;
+      _isLoading = true;
     });
+
+    try {
+      final response = await http
+          .get(Uri.parse('http://localhost:3000/get_word/movie'))
+          .timeout(Duration(seconds: 10));
+      if (response.statusCode == 200) {
+        final wordData = jsonDecode(response.body);
+        final newWord = wordData["word"].toUpperCase();
+        print('Fetched word: $newWord'); // Print the fetched word
+        setState(() {
+          word = newWord;
+          hint = wordData["hint"] ?? ""; // Handle the case where hint is null
+          selectedChar.clear();
+          tries = 0;
+          _isLoading = false;
+        });
+      } else {
+        throw Exception('Failed to load word');
+      }
+    } catch (e) {
+      // If there is an error, handle it appropriately
+      setState(() {
+        _isLoading = false;
+      });
+      showDialog(
+        context: context,
+        builder: (context) => AlertDialog(
+          title: Text('Error'),
+          content: Text('Failed to load word. Please try again.'),
+          actions: [
+            TextButton(
+              onPressed: () {
+                Navigator.of(context).pop();
+                loadNewWord(); // Retry loading the word
+              },
+              child: Text('Retry'),
+            ),
+          ],
+        ),
+      );
+      print(e);
+    }
   }
+
 
   void checkWinCondition() {
     if (selectedChar.toSet().containsAll(word.split('').toSet())) {
       // User has successfully guessed the whole word
       loadNewWord();
     } else if (tries >= 7) {
-      // User has reached 6 tries
+      // User has reached the maximum number of tries
       loadNewWord();
     }
   }
 
-  final GlobalKey buttonKey = GlobalKey();
   @override
   void initState() {
     super.initState();
-    wordDataIndex = _random.nextInt(wordData.length);
-    word = wordData[wordDataIndex]["word"]?.toUpperCase() ?? "";
-
-    hint = wordData[wordDataIndex]["hint"]!;
+    loadNewWord();
   }
 
   @override
@@ -127,7 +95,9 @@ class _MoviesState extends State<Movies> {
         elevation: 0.0,
         backgroundColor: Colors.transparent,
       ),
-      body: Column(
+      body: _isLoading
+          ? Center(child: CircularProgressIndicator())
+          : Column(
         children: [
           Expanded(
             flex: 3,
@@ -148,9 +118,7 @@ class _MoviesState extends State<Movies> {
                   ),
                 ),
                 ElevatedButton(
-                  key: buttonKey,
-                  onPressed:
-                      loadNewWord, // Call the function to load a new word
+                  onPressed: loadNewWord,
                   child: Text(
                     "New word",
                     style: TextStyle(
@@ -181,10 +149,10 @@ class _MoviesState extends State<Movies> {
                                 .split("")
                                 .map(
                                   (e) => hiddenLetter(
-                                    e,
-                                    selectedChar.contains(e.toUpperCase()),
-                                  ),
-                                )
+                                e,
+                                selectedChar.contains(e.toUpperCase()),
+                              ),
+                            )
                                 .toList(),
                           ),
                         ],
@@ -208,31 +176,29 @@ class _MoviesState extends State<Movies> {
                     .split("")
                     .map(
                       (e) => ElevatedButton(
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: AppColors.bgColor,
-                        ),
-                        onPressed: selectedChar.contains(e.toUpperCase())
-                            ? null
-                            : () {
-                                setState(() {
-                                  selectedChar.add(e.toUpperCase());
-                                  if (!word
-                                      .split("")
-                                      .contains(e.toUpperCase())) {
-                                    tries++;
-                                  }
-                                  checkWinCondition();
-                                });
-                              },
-                        child: Text(
-                          e,
-                          style: TextStyle(
-                            fontSize: 24,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: AppColors.bgColor,
+                    ),
+                    onPressed: selectedChar.contains(e.toUpperCase())
+                        ? null
+                        : () {
+                      setState(() {
+                        selectedChar.add(e.toUpperCase());
+                        if (!word.split("").contains(e.toUpperCase())) {
+                          tries++;
+                        }
+                        checkWinCondition();
+                      });
+                    },
+                    child: Text(
+                      e,
+                      style: TextStyle(
+                        fontSize: 24,
+                        fontWeight: FontWeight.bold,
                       ),
-                    )
+                    ),
+                  ),
+                )
                     .toList(),
               ),
             ),

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'dart:math';
-
+import 'package:http/http.dart' as http;
+import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:hangman_app/const/const.dart';
 import 'package:hangman_app/game/figure_widget.dart';
@@ -14,165 +15,75 @@ class Myth extends StatefulWidget {
 }
 
 class _MythState extends State<Myth> {
-  var characters = "abcdefghijklmnopqrstuvwxyz".toUpperCase();
-  var wordData = [
-    {
-      "word": "Krishna",
-      "hint": "Eighth incarnation of Lord Vishnu, known for his flute"
-    },
-    {
-      "word": "Shiva",
-      "hint": "The destroyer in the Holy Trinity (Brahma, Vishnu, Shiva)"
-    },
-    {
-      "word": "Ramayana",
-      "hint": "Ancient epic narrating Lord Rama's life and adventures"
-    },
-    {"word": "Ganesha", "hint": "Elephant-headed deity, remover of obstacles"},
-    {
-      "word": "Mahabharata",
-      "hint": "Epic story of the Kurukshetra War and dharma"
-    },
-    {
-      "word": "Hanuman",
-      "hint": "Devotee of Lord Rama, known for strength and devotion"
-    },
-    {"word": "Durga", "hint": "Goddess of power and the divine feminine"},
-    {
-      "word": "Vishnu",
-      "hint": "Preserver in the Holy Trinity, sustainer of the universe"
-    },
-    {"word": "Lakshmi", "hint": "Goddess of wealth, fortune, and prosperity"},
-    {
-      "word": "Bhagavad Gita",
-      "hint": "Sacred scripture of Lord Krishna's teachings to Arjuna"
-    },
-    {
-      "word": "Brahma",
-      "hint": "Creator in the Holy Trinity, the source of the universe"
-    },
-    {"word": "Saraswati", "hint": "Goddess of knowledge, music, and art"},
-    {
-      "word": "Krishna",
-      "hint": "Eighth incarnation of Lord Vishnu, known for his flute"
-    },
-    {
-      "word": "Shiva",
-      "hint": "The destroyer in the Holy Trinity (Brahma, Vishnu, Shiva)"
-    },
-    {
-      "word": "Ramayana",
-      "hint": "Ancient epic narrating Lord Rama's life and adventures"
-    },
-    {"word": "Ganesha", "hint": "Elephant-headed deity, remover of obstacles"},
-    {
-      "word": "Mahabharata",
-      "hint": "Epic story of the Kurukshetra War and dharma"
-    },
-    {
-      "word": "Hanuman",
-      "hint": "Devotee of Lord Rama, known for strength and devotion"
-    },
-    {"word": "Durga", "hint": "Goddess of power and the divine feminine"},
-    {
-      "word": "Vishnu",
-      "hint": "Preserver in the Holy Trinity, sustainer of the universe"
-    },
-    {"word": "Lakshmi", "hint": "Goddess of wealth, fortune, and prosperity"},
-    {
-      "word": "Bhagavad Gita",
-      "hint": "Sacred scripture of Lord Krishna's teachings to Arjuna"
-    },
-    {
-      "word": "Brahma",
-      "hint": "Creator in the Holy Trinity, the source of the universe"
-    },
-    {"word": "Saraswati", "hint": "Goddess of knowledge, music, and art"},
-    {"word": "Kali", "hint": "Goddess of time, destruction, and empowerment"},
-    {"word": "Ravana", "hint": "Demon king and antagonist in the Ramayana"},
-    {
-      "word": "Parvati",
-      "hint": "Goddess, wife of Shiva, and mother of Ganesha"
-    },
-    {"word": "Indra", "hint": "King of the gods, ruler of the heavens"},
-    {"word": "Garuda", "hint": "Eagle-like mount of Lord Vishnu"},
-    {
-      "word": "Krishna",
-      "hint": "Eighth incarnation of Lord Vishnu, known for his flute"
-    },
-    {
-      "word": "Shiva",
-      "hint": "The destroyer in the Holy Trinity (Brahma, Vishnu, Shiva)"
-    },
-    {
-      "word": "Ramayana",
-      "hint": "Ancient epic narrating Lord Rama's life and adventures"
-    },
-    {"word": "Ganesha", "hint": "Elephant-headed deity, remover of obstacles"},
-    {
-      "word": "Mahabharata",
-      "hint": "Epic story of the Kurukshetra War and dharma"
-    },
-    {
-      "word": "Hanuman",
-      "hint": "Devotee of Lord Rama, known for strength and devotion"
-    },
-    {"word": "Durga", "hint": "Goddess of power and the divine feminine"},
-    {
-      "word": "Vishnu",
-      "hint": "Preserver in the Holy Trinity, sustainer of the universe"
-    },
-    {"word": "Lakshmi", "hint": "Goddess of wealth, fortune, and prosperity"},
-    {
-      "word": "Bhagavad Gita",
-      "hint": "Sacred scripture of Lord Krishna's teachings to Arjuna"
-    },
-    {
-      "word": "Brahma",
-      "hint": "Creator in the Holy Trinity, the source of the universe"
-    },
-    {"word": "Saraswati", "hint": "Goddess of knowledge, music, and art"},
-    {"word": "Kali", "hint": "Goddess of time, destruction, and empowerment"},
-    {"word": "Ravana", "hint": "Demon king and antagonist in the Ramayana"},
-    {
-      "word": "Parvati",
-      "hint": "Goddess, wife of Shiva, and mother of Ganesha"
-    },
-  ];
-  final _random = Random();
-  late var wordDataIndex;
+  final String characters = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
+  late String word = "";
+  late String hint = ""; // Provide a default value to prevent late initialization error
   List<String> selectedChar = [];
-  var tries = 0;
-  late String word; // Removed null safety from 'word' variable
-  late String hint; // Removed null safety from 'hint' variable
-  void loadNewWord() {
+  int tries = 0;
+  bool _isLoading = true;
+  Future<void> loadNewWord() async {
     setState(() {
-      wordDataIndex = _random.nextInt(wordData.length);
-      word = wordData[wordDataIndex]["word"]!.toUpperCase();
-      hint = wordData[wordDataIndex]["hint"]!;
-      selectedChar.clear();
-      tries = 0;
+      _isLoading = true;
     });
+
+    try {
+      final response = await http
+          .get(Uri.parse('http://localhost:3000/get_word/mythology'))
+          .timeout(Duration(seconds: 10));
+      if (response.statusCode == 200) {
+        final wordData = jsonDecode(response.body);
+        final newWord = wordData["word"].toUpperCase();
+        print('Fetched word: $newWord'); // Print the fetched word
+        setState(() {
+          word = newWord;
+          hint = wordData["hint"] ?? ""; // Handle the case where hint is null
+          selectedChar.clear();
+          tries = 0;
+          _isLoading = false;
+        });
+      } else {
+        throw Exception('Failed to load word');
+      }
+    } catch (e) {
+      // If there is an error, handle it appropriately
+      setState(() {
+        _isLoading = false;
+      });
+      showDialog(
+        context: context,
+        builder: (context) => AlertDialog(
+          title: Text('Error'),
+          content: Text('Failed to load word. Please try again.'),
+          actions: [
+            TextButton(
+              onPressed: () {
+                Navigator.of(context).pop();
+                loadNewWord(); // Retry loading the word
+              },
+              child: Text('Retry'),
+            ),
+          ],
+        ),
+      );
+      print(e);
+    }
   }
+
 
   void checkWinCondition() {
     if (selectedChar.toSet().containsAll(word.split('').toSet())) {
       // User has successfully guessed the whole word
       loadNewWord();
     } else if (tries >= 7) {
-      // User has reached 6 tries
+      // User has reached the maximum number of tries
       loadNewWord();
     }
   }
 
-  final GlobalKey buttonKey = GlobalKey();
   @override
   void initState() {
     super.initState();
-    wordDataIndex = _random.nextInt(wordData.length);
-    word = wordData[wordDataIndex]["word"]?.toUpperCase() ?? "";
-
-    hint = wordData[wordDataIndex]["hint"]!;
+    loadNewWord();
   }
 
   @override
@@ -184,7 +95,9 @@ class _MythState extends State<Myth> {
         elevation: 0.0,
         backgroundColor: Colors.transparent,
       ),
-      body: Column(
+      body: _isLoading
+          ? Center(child: CircularProgressIndicator())
+          : Column(
         children: [
           Expanded(
             flex: 3,
@@ -205,9 +118,7 @@ class _MythState extends State<Myth> {
                   ),
                 ),
                 ElevatedButton(
-                  key: buttonKey,
-                  onPressed:
-                      loadNewWord, // Call the function to load a new word
+                  onPressed: loadNewWord,
                   child: Text(
                     "New word",
                     style: TextStyle(
@@ -238,10 +149,10 @@ class _MythState extends State<Myth> {
                                 .split("")
                                 .map(
                                   (e) => hiddenLetter(
-                                    e,
-                                    selectedChar.contains(e.toUpperCase()),
-                                  ),
-                                )
+                                e,
+                                selectedChar.contains(e.toUpperCase()),
+                              ),
+                            )
                                 .toList(),
                           ),
                         ],
@@ -265,31 +176,29 @@ class _MythState extends State<Myth> {
                     .split("")
                     .map(
                       (e) => ElevatedButton(
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: AppColors.bgColor,
-                        ),
-                        onPressed: selectedChar.contains(e.toUpperCase())
-                            ? null
-                            : () {
-                                setState(() {
-                                  selectedChar.add(e.toUpperCase());
-                                  if (!word
-                                      .split("")
-                                      .contains(e.toUpperCase())) {
-                                    tries++;
-                                  }
-                                  checkWinCondition();
-                                });
-                              },
-                        child: Text(
-                          e,
-                          style: TextStyle(
-                            fontSize: 24,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: AppColors.bgColor,
+                    ),
+                    onPressed: selectedChar.contains(e.toUpperCase())
+                        ? null
+                        : () {
+                      setState(() {
+                        selectedChar.add(e.toUpperCase());
+                        if (!word.split("").contains(e.toUpperCase())) {
+                          tries++;
+                        }
+                        checkWinCondition();
+                      });
+                    },
+                    child: Text(
+                      e,
+                      style: TextStyle(
+                        fontSize: 24,
+                        fontWeight: FontWeight.bold,
                       ),
-                    )
+                    ),
+                  ),
+                )
                     .toList(),
               ),
             ),
